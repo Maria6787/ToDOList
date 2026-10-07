@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #fef0fd;
+        }
+        .btn-custom {
+            background-color: #ffd1dc; 
+            border: none;
+            color: #000;
+        }
+        .btn-custom:hover {
+            background-color: #ffc0cb; 
+        }
+        .task.done {
+            text-decoration: line-through;
+            color: gray;
+        }
+        .task {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <h1 class="text-center mb-4">To-Do List</h1>
+
+        <!-- Search Bar -->
+        <div class="mb-4 d-flex">
+            <input type="text" id="search-bar" class="form-control me-2" placeholder="Search tasks...">
+            <button id="search-button" class="btn btn-custom">Search</button>
+            <button id="show-all-button" class="btn btn-custom ms-2">Show All</button>
+        </div>
+
+        <form id="task-form" class="mb-4">
+            <div class="mb-3">
+                <label for="task-title" class="form-label">Task Title</label>
+                <input type="text" id="task-title" class="form-control" placeholder="Enter task title">
+                <small class="text-danger" id="title-error"></small>
+            </div>
+            <div class="mb-3">
+                <label for="task-description" class="form-label">Task Description</label>
+                <textarea id="task-description" class="form-control" rows="3" placeholder="Enter task description"></textarea>
+                <small class="text-danger" id="description-error"></small>
+            </div>
+            <div class="mb-3">
+                <label for="task-deadline" class="form-label">Deadline</label>
+                <input type="date" id="task-deadline" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-custom">Add Task</button>
+        </form>
+
+        <h3>Active Tasks</h3>
+        <div id="task-list" class="mb-4"></div>
+
+        <footer>
+            <div id="clock" class="text-center text-secondary"></div>
+        </footer>
+    </div>
+
+    <script>
+        const taskForm = document.getElementById('task-form');
+        const taskTitle = document.getElementById('task-title');
+        const taskDescription = document.getElementById('task-description');
+        const taskDeadline = document.getElementById('task-deadline');
+        const taskList = document.getElementById('task-list');
+        const searchBar = document.getElementById('search-bar');
+        const searchButton = document.getElementById('search-button');
+        const showAllButton = document.getElementById('show-all-button');
+        const titleError = document.getElementById('title-error');
+        const descriptionError = document.getElementById('description-error');
+        const clock = document.getElementById('clock');
+
+        const loadTasks = () => {
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            tasks.forEach(task => renderTask(task));
+        };
+
+        const saveTasks = (tasks) => {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        };
+
+        const getTasks = () => JSON.parse(localStorage.getItem('tasks')) || [];
+
+        const renderTask = (task) => {
+            const taskDiv = document.createElement('div');
+            taskDiv.classList.add('task');
+            if (task.done) taskDiv.classList.add('done');
+
+            taskDiv.innerHTML = `
+                <h5>${task.title}</h5>
+                <p>${task.description}</p>
+                <p><strong>Deadline:</strong> ${task.deadline || 'No deadline'}</p>
+                <button class="btn btn-sm btn-custom mark-done">Mark as Done</button>
+                <button class="btn btn-sm btn-custom edit-task">Edit</button>
+                <button class="btn btn-sm btn-custom delete-task">Delete</button>
+            `;
+
+            const markDoneButton = taskDiv.querySelector('.mark-done');
+            const editButton = taskDiv.querySelector('.edit-task');
+            const deleteButton = taskDiv.querySelector('.delete-task');
+
+            markDoneButton.addEventListener('click', () => markTaskAsDone(task.title));
+            editButton.addEventListener('click', () => editTask(task));
+            deleteButton.addEventListener('click', () => deleteTask(task.title));
+
+            taskList.appendChild(taskDiv);
+        };
+
+        taskForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            titleError.textContent = '';
+            descriptionError.textContent = '';
+
+            const title = taskTitle.value.trim();
+            const description = taskDescription.value.trim();
+            const deadline = taskDeadline.value;
+
+            if (title.length < 5 || title.length > 25) {
+                titleError.textContent = 'Title must be between 5 and 25 characters.';
+                return;
+            }
+
+            if (description.length < 20 || description.length > 100) {
+                descriptionError.textContent = 'Description must be between 20 and 100 characters.';
+                return;
+            }
+
+            const newTask = { title, description, deadline, done: false };
+            const tasks = getTasks();
+            tasks.push(newTask);
+            saveTasks(tasks);
+
+            taskList.innerHTML = '';
+            tasks.forEach(task => renderTask(task));
+
+            taskForm.reset();
+        });
+
+        const markTaskAsDone = (title) => {
+            const tasks = getTasks();
+            const task = tasks.find(t => t.title === title);
+            if (task) {
+                task.done = true;
+                saveTasks(tasks);
+                taskList.innerHTML = '';
+                tasks.forEach(task => renderTask(task));
+            }
+        };
+
+        const editTask = (task) => {
+            taskTitle.value = task.title;
+            taskDescription.value = task.description;
+            taskDeadline.value = task.deadline;
+
+            deleteTask(task.title);
+        };
+
+        const deleteTask = (title) => {
+            let tasks = getTasks();
+            tasks = tasks.filter(task => task.title !== title);
+            saveTasks(tasks);
+            taskList.innerHTML = '';
+            tasks.forEach(task => renderTask(task));
+        };
+
+        searchButton.addEventListener('click', () => {
+            const searchValue = searchBar.value.toLowerCase();
+            const tasks = getTasks();
+            taskList.innerHTML = '';
+            tasks.filter(task => 
+                task.title.toLowerCase().includes(searchValue) || 
+                task.description.toLowerCase().includes(searchValue) || 
+                (task.deadline && task.deadline.includes(searchValue))
+            ).forEach(task => renderTask(task));
+        });
+
+        showAllButton.addEventListener('click', () => {
+            taskList.innerHTML = '';
+            const tasks = getTasks();
+            tasks.forEach(task => renderTask(task));
+        });
+
+        const updateClock = () => {
+            const now = new Date();
+            clock.textContent = now.toLocaleString('en-US', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', 
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+        };
+
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        loadTasks();
+    </script>
+</body>
+</html>
